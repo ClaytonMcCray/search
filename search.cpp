@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	if (!std::filesystem::is_directory(argv[1])) {
+	if (!std::filesystem::is_directory(file_path)) {
 		search_file_for(file_path, search_key);
 	} else {
 		directory_searcher(file_path, search_key);
