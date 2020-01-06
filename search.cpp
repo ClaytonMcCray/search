@@ -7,7 +7,7 @@
 #include <vector>
 #include <algorithm>
 
-enum class [[nodiscard]] ec {success};
+enum class [[nodiscard]] ec {not_regular, stream_fail};
 
 auto is_binary(const std::string &file_path) -> bool {
 	auto f = std::ifstream{file_path, std::ios::binary};
@@ -22,15 +22,16 @@ auto is_binary(const std::string &file_path) -> bool {
 }
 
 
-auto search_file_for(const std::string file_path, const std::string &search_key, 
-		bool reg=true) -> std::optional<ec> {
-	if (reg && (!std::filesystem::is_regular_file(file_path) || is_binary(file_path))) {
-		return std::nullopt;
+// returns std::nullopt on success
+auto search_file_for(const std::filesystem::path file_path, const std::string &search_key, 
+		bool no_binary=true) -> std::optional<ec> {
+	if ((no_binary && is_binary(file_path)) || !std::filesystem::is_regular_file(file_path)) {
+		return std::optional<ec>{ec::not_regular};
 	}
 
 	auto f = std::ifstream{file_path};
 	if (f.fail()) {
-		return std::nullopt;
+		return std::optional<ec>{ec::stream_fail};
 	}
 
 	std::string line;
@@ -39,23 +40,24 @@ auto search_file_for(const std::string file_path, const std::string &search_key,
 			continue;
 		}
 
-		std::cout <<  file_path << ":" << line_number << ":\t" << line << std::endl;
+		std::cout <<  file_path.string() << ":" << line_number << ":\t" << line << std::endl;
 	}
 
-	return std::optional<ec>{ec::success};
+	return std::nullopt;
 }
 
 
-void directory_searcher(const std::string dir_path, const std::string &search_key,
+void directory_searcher(const std::filesystem::path dir_path, const std::string &search_phrase,
 		std::vector<std::future<std::optional<ec>>> *results) {
 	for (auto contents : std::filesystem::directory_iterator(dir_path)) {
-		if (std::filesystem::is_directory(contents)) {
-			directory_searcher(contents.path().string(), search_key, results);
+		if (std::filesystem::is_directory(contents.path())) {
+			directory_searcher(contents.path(), search_phrase, results);
+			continue;
 		}
 
 
 		std::promise<std::optional<ec>> p;
-		p.set_value(search_file_for(contents.path().string(), search_key));
+		p.set_value(search_file_for(contents.path(), search_phrase));
 		results->push_back(p.get_future());
 	}
 }
@@ -70,6 +72,7 @@ int main(int argc, char **argv) {
 	std::string file_path = argv[1];
 	std::string search_key = argv[2];
 
+
 	if (!std::filesystem::exists(file_path)) {
 		return 1;
 	}
@@ -82,7 +85,10 @@ int main(int argc, char **argv) {
 		std::for_each(std::begin(error_results), std::end(error_results), 
 			[](auto &err) { 
 				err.wait();
-				err.get(); 
+				auto rc = err.get();
+				if (rc != std::nullopt) {
+					std::cout << "failure with " << (*rc == ec::not_regular ? "ec::not_regular" : "ec::stream_fail") << std::endl;
+				} 
 			});
 	}
 }
