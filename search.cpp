@@ -69,8 +69,8 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	std::string file_path = argv[1];
-	std::string search_key = argv[2];
+	const std::string &file_path = argv[1];
+	const std::string &search_key = argv[2];
 
 
 	if (!std::filesystem::exists(file_path)) {
@@ -82,13 +82,13 @@ int main(int argc, char **argv) {
 	} else {
 		auto error_results = std::vector<std::future<std::optional<ec>>>{};
 		directory_searcher(file_path, search_key, &error_results);
-		std::for_each(std::begin(error_results), std::end(error_results), 
-			[](auto &err) { 
-				err.wait();
-				auto rc = err.get();
-				if (rc != std::nullopt) {
-					std::cout << "failure with " << (*rc == ec::not_regular ? "ec::not_regular" : "ec::stream_fail") << std::endl;
-				} 
-			});
+
+		for (auto &err_future : error_results) {
+			err_future.wait();
+			auto err = err_future.get();
+			if (err != std::nullopt) {
+				std::cout << "failure with " << (*err == ec::not_regular ? "ec::not_regular" : "ec::stream_fail") << std::endl;
+			}
+		}
 	}
 }

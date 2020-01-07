@@ -5,6 +5,9 @@ set(cmake_cxx_compiler clang++)
 set(cmake_cxx_standard_required on)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+set(CMAKE_CXX_FLAGS_DEBUG "-ggdb")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
 find_package(Threads REQUIRED)
 
 add_executable(search search.cpp)
