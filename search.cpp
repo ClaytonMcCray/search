@@ -7,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 
+
 enum class [[nodiscard]] ec {not_regular, stream_fail};
 
 auto is_binary(const std::string &file_path) -> bool {
@@ -56,9 +57,7 @@ void directory_searcher(const std::filesystem::path dir_path, const std::string 
 		}
 
 
-		std::promise<std::optional<ec>> p;
-		p.set_value(search_file_for(contents.path(), search_phrase));
-		results->push_back(p.get_future());
+		results->push_back(std::async(std::launch::async, search_file_for, contents.path(), search_phrase, true));
 	}
 }
 
@@ -84,7 +83,6 @@ int main(int argc, char **argv) {
 		directory_searcher(file_path, search_key, &error_results);
 
 		for (auto &err_future : error_results) {
-			err_future.wait();
 			auto err = err_future.get();
 			if (err != std::nullopt) {
 				std::cout << "failure with " << (*err == ec::not_regular ? "ec::not_regular" : "ec::stream_fail") << std::endl;
