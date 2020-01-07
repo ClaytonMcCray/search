@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description='Configure search build.')
 parser.add_argument('--debug', type=str, default="debug")
 parser.add_argument('--release', type=str, default="release")
 parser.add_argument('--root', type=str, default=os.getcwd())
-parser.add_argument('--build', type=bool, default=False)
+parser.add_argument('--build', default=False, action='store_true')
 
 args = parser.parse_args()
 
