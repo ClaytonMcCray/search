@@ -1,14 +1,15 @@
-#include <iostream>
-#include <fstream>
-#include <filesystem>
-#include <cstdint>
-#include <optional>
-#include <future>
-#include <vector>
 #include <algorithm>
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <future>
+#include <iostream>
+#include <optional>
+#include <vector>
 
+#include "WriteToStdout.h"
 
-enum class [[nodiscard]] ec {not_regular, stream_fail};
+enum class [[nodiscard]] ec{not_regular, stream_fail};
 
 auto is_binary(const std::string &file_path) -> bool {
 	auto f = std::ifstream{file_path, std::ios::binary};
@@ -22,10 +23,11 @@ auto is_binary(const std::string &file_path) -> bool {
 	return false;
 }
 
-
 // returns std::nullopt on success
-auto search_file_for(const std::filesystem::path file_path, const std::string &search_key, 
-		bool no_binary=true) -> std::optional<ec> {
+template <typename Writer>
+auto search_file_for(const std::filesystem::path file_path, const std::string &search_key, bool no_binary,
+		     const Writer writer) -> std::optional<ec> {
+
 	if ((no_binary && is_binary(file_path)) || !std::filesystem::is_regular_file(file_path)) {
 		return std::optional<ec>{ec::not_regular};
 	}
@@ -41,26 +43,27 @@ auto search_file_for(const std::filesystem::path file_path, const std::string &s
 			continue;
 		}
 
-		std::cout <<  file_path.string() << ":" << line_number << ":\t" << line << std::endl;
+		writer.write(file_path.string(), ":", line_number, ":\t", line, "\n");
 	}
 
 	return std::nullopt;
 }
 
-
+template <typename Writer>
 void directory_searcher(const std::filesystem::path dir_path, const std::string &search_phrase,
-		std::vector<std::future<std::optional<ec>>> *results) {
+			std::vector<std::future<std::optional<ec>>> *results, const Writer &writer) {
+
 	for (auto contents : std::filesystem::directory_iterator(dir_path)) {
 		if (std::filesystem::is_directory(contents.path())) {
-			directory_searcher(contents.path(), search_phrase, results);
+			directory_searcher(contents.path(), search_phrase, results, writer);
 			continue;
 		}
 
-
-		results->push_back(std::async(std::launch::async, search_file_for, contents.path(), search_phrase, true));
+		results->push_back(std::async(std::launch::async, [&]() {
+			return search_file_for(contents.path(), search_phrase, true, writer);
+		}));
 	}
 }
-
 
 int main(int argc, char **argv) {
 
@@ -71,22 +74,20 @@ int main(int argc, char **argv) {
 	const std::string &file_path = argv[1];
 	const std::string &search_key = argv[2];
 
-
 	if (!std::filesystem::exists(file_path)) {
 		return 1;
 	}
 
+	auto writer = WriteToStdout{};
+
 	if (!std::filesystem::is_directory(file_path)) {
-		search_file_for(file_path, search_key);
+		search_file_for(file_path, search_key, true, writer);
 	} else {
 		auto error_results = std::vector<std::future<std::optional<ec>>>{};
-		directory_searcher(file_path, search_key, &error_results);
+		directory_searcher(file_path, search_key, &error_results, writer);
 
 		for (auto &err_future : error_results) {
-			auto err = err_future.get();
-			if (err != std::nullopt) {
-				std::cout << "failure with " << (*err == ec::not_regular ? "ec::not_regular" : "ec::stream_fail") << std::endl;
-			}
+			err_future.get(); // not handling any errors
 		}
 	}
 }
