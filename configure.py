@@ -2,10 +2,10 @@ import os
 import argparse
 
 
-def run_cmake(root_directory, build_directory):
+def run_cmake(root_directory, build_directory, build_arg):
 	back = os.getcwd()
 	os.chdir(build_directory)
-	os.system('cmake ' + root_directory)
+	os.system('cmake -DCMAKE_BUILD_TYPE=' + build_arg + ' ' + root_directory)
 	os.chdir(back)
 
 
@@ -28,8 +28,8 @@ os.makedirs(args.debug)
 os.makedirs(args.release)
 
 
-run_cmake(args.root, args.debug)
-run_cmake(args.root, args.release)
+run_cmake(args.root, args.debug, "Debug")
+run_cmake(args.root, args.release, "Release")
 
 if args.build:
 	run_make(args.root, args.debug)
