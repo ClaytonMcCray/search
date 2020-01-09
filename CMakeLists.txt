@@ -10,7 +10,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 find_package(Threads REQUIRED)
 
-add_executable(search main.cpp search.cpp)
+add_executable(search main.cpp)
 set_property(TARGET search PROPERTY CXX_STANDARD 17)
 target_compile_options(search PRIVATE -Werror -Wall -Wextra)
 target_link_libraries(search Threads::Threads)

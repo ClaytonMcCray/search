@@ -17,7 +17,7 @@ class WriteToStdout {
 	template <typename T, typename ...streamable>
 	void write(const T &one, const streamable&... Args) const {
 		std::cout << one;
-		write(Args...);
+		this->write(Args...);
 	}
 };
 

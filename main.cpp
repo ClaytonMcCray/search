@@ -3,6 +3,7 @@
 
 #include "search.h"
 #include "WriteToStdout.h"
+#include "ReadFromFile.h"
 
 
 int main(int argc, char **argv) {
@@ -17,6 +18,6 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	auto controller = Search{std::string{"dumbo"}, WriteToStdout{}, std::move(search_key)};
+	auto controller = Search<ReadFromFile, WriteToStdout>{std::move(search_key)};
 	controller.search(file_path);
 }
