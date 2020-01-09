@@ -121,7 +121,7 @@ def avg_time(num_tries, max_query_len, search_, grep_, ripgrep_, csv=None):
 
 		if csv is not None:
 			with open(csv, "a", encoding="utf-8") as csv_f:
-				lines = datetime.today().strftime('%Y-%m-%d') + "," + q \
+				lines = datetime.today().strftime('%Y-%m-%d') + "," + q + "," + str(len(q)) \
 					+ "," + str(searches[-1]) + "," + str(greps[-1]) + "," + str(ripgreps[-1]) + "\n"
 
 				csv_f.write(lines)
@@ -138,4 +138,4 @@ def avg_time(num_tries, max_query_len, search_, grep_, ripgrep_, csv=None):
 
 generate_search_dir()
 print("done generating files/tree")
-print(avg_time(100, 10000, search_dir_with_search, search_dir_with_grep, search_dir_with_ripgrep, csv=conf.dir_csv))
+print(avg_time(97, 10000, search_dir_with_search, search_dir_with_grep, search_dir_with_ripgrep, csv=conf.dir_csv))
