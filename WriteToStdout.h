@@ -5,9 +5,6 @@
 
 class WriteToStdout {
 	public:
-	WriteToStdout()=default;
-
-
 	template <typename T>
 	void write(const T &one) const {
 		std::cout << one << std::flush;

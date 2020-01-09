@@ -7,26 +7,30 @@
 #include <future>
 #include <iostream>
 #include <optional>
-#include <vector>
 #include <sstream>
+#include <vector>
 
 using result_vector = std::vector<std::future<std::optional<std::string>>>;
 namespace fs = std::filesystem;
 
+template <typename Reader, typename Writer>
+class SearchBuilder;
+
 template <typename Reader, typename Writer> class Search {
+
+      public:
+	friend class SearchBuilder<Reader, Writer>;
+	void search(const fs::path &dir_path);
 
       private:
 	Writer writer;
 	const std::string search_key;
 	bool no_binary = true;
 
-	auto is_binary(const std::string &file_path) -> bool;
-	auto search_file_for(const fs::path file_path) -> std::optional<std::string>;
-	void directory_searcher(const fs::path dir_path, result_vector *results);
-
-      public:
 	Search(const std::string &&search_key);
-	void search(const fs::path &dir_path);
+	auto is_binary(const std::string &file_path) -> bool;
+	auto search_file(const fs::path file_path) -> std::optional<std::string>;
+	void directory_searcher(const fs::path dir_path, result_vector *results);
 };
 
 template <typename Reader, typename Writer>
@@ -44,7 +48,7 @@ auto Search<Reader, Writer>::is_binary(const std::string &file_path) -> bool {
 
 // returns std::nullopt on failure
 template <typename Reader, typename Writer>
-auto Search<Reader, Writer>::search_file_for(const fs::path file_path) -> std::optional<std::string> {
+auto Search<Reader, Writer>::search_file(const fs::path file_path) -> std::optional<std::string> {
 
 	if ((this->no_binary && this->is_binary(file_path)) || !fs::is_regular_file(file_path)) {
 		return std::nullopt;
@@ -57,7 +61,7 @@ auto Search<Reader, Writer>::search_file_for(const fs::path file_path) -> std::o
 
 	std::string line;
 	std::stringstream matches;
-	for (int64_t line_number = 0; std::getline(f, line); line_number++) {
+	for (int64_t line_number = 1; std::getline(f, line); line_number++) {
 		if (line.find(this->search_key) == std::string::npos) {
 			continue;
 		}
@@ -78,19 +82,17 @@ void Search<Reader, Writer>::directory_searcher(const fs::path dir_path, result_
 		}
 
 		results->push_back(
-		    std::async(std::launch::async, [&]() { return this->search_file_for(contents.path()); }));
-
-		// std::promise<std::optional<ec>> p;
-		// results->push_back(p.get_future());
-		// p.set_value(this->search_file_for(contents.path()));
+		    std::async(std::launch::async, [=]() { return this->search_file(contents.path()); }));
 	}
 }
-
 
 template <typename Reader, typename Writer> void Search<Reader, Writer>::search(const fs::path &dir_path) {
 
 	if (!std::filesystem::is_directory(dir_path)) {
-		this->search_file_for(dir_path);
+		auto hits = this->search_file(dir_path);
+		if (hits != std::nullopt) {
+			this->writer.write(*hits);
+		}
 	} else {
 		auto results = result_vector{};
 		this->directory_searcher(dir_path, &results);
@@ -107,8 +109,25 @@ template <typename Reader, typename Writer> void Search<Reader, Writer>::search(
 }
 
 template <typename Reader, typename Writer>
-Search<Reader, Writer>::Search(const std::string &&search_key) : search_key(search_key) {
-	this->writer = writer;
-}
+Search<Reader, Writer>::Search(const std::string &&search_key) : search_key(search_key) {}
+
+
+
+
+template <typename Reader, typename Writer>
+class SearchBuilder {
+	private:
+	bool no_binary = true;
+	Search<Reader, Writer> searcher;
+
+	public:
+	SearchBuilder(const std::string &&search_key) : searcher(std::move(search_key)) {}
+	SearchBuilder& search_binary_files() {
+		this->searcher.no_binary = false;
+		return *this;
+	}
+
+	Search<Reader, Writer> build() { return this->searcher; }
+};
 
 #endif

@@ -18,6 +18,6 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	auto controller = Search<ReadFromFile, WriteToStdout>{std::move(search_key)};
+	auto controller = SearchBuilder<ReadFromFile, WriteToStdout>{std::move(search_key)}.build();
 	controller.search(file_path);
 }
