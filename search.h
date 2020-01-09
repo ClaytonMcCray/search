@@ -28,13 +28,13 @@ template <typename Reader, typename Writer> class Search {
 	bool no_binary = true;
 
 	Search(const std::string &&search_key);
-	auto is_binary(const std::string &file_path) -> bool;
+	auto is_binary(const fs::path &file_path) -> bool;
 	auto search_file(const fs::path file_path) -> std::optional<std::string>;
 	void directory_searcher(const fs::path dir_path, result_vector *results);
 };
 
 template <typename Reader, typename Writer>
-auto Search<Reader, Writer>::is_binary(const std::string &file_path) -> bool {
+auto Search<Reader, Writer>::is_binary(const fs::path &file_path) -> bool {
 	auto f = Reader::stream(file_path, std::ios::binary);
 	constexpr auto null_byte = 0x00;
 	for (auto b = f.get(); b != EOF; b = f.get()) {
@@ -54,7 +54,7 @@ auto Search<Reader, Writer>::search_file(const fs::path file_path) -> std::optio
 		return std::nullopt;
 	}
 
-	auto f = Reader::stream(file_path.string());
+	auto f = Reader::stream(file_path);
 	if (f.fail()) {
 		return std::nullopt;
 	}
