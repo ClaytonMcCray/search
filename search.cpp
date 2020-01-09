@@ -1,17 +1,13 @@
 #include <algorithm>
 #include <cstdint>
-#include <filesystem>
 #include <fstream>
-#include <future>
 #include <iostream>
-#include <optional>
-#include <vector>
 
 #include "WriteToStdout.h"
+#include "search.h"
 
-enum class [[nodiscard]] ec{not_regular, stream_fail};
-
-auto is_binary(const std::string &file_path) -> bool {
+template <typename Reader, typename Writer>
+auto Search<Reader, Writer>::is_binary(const std::string &file_path) -> bool {
 	auto f = std::ifstream{file_path, std::ios::binary};
 	constexpr auto null_byte = 0x00;
 	for (auto b = f.get(); b != EOF; b = f.get()) {
@@ -24,11 +20,10 @@ auto is_binary(const std::string &file_path) -> bool {
 }
 
 // returns std::nullopt on success
-template <typename Writer>
-auto search_file_for(const std::filesystem::path file_path, const std::string &search_key, bool no_binary,
-		     const Writer writer) -> std::optional<ec> {
+template <typename Reader, typename Writer>
+auto Search<Reader, Writer>::search_file_for(const fs::path file_path) -> std::optional<ec> {
 
-	if ((no_binary && is_binary(file_path)) || !std::filesystem::is_regular_file(file_path)) {
+	if ((this->no_binary && this->is_binary(file_path)) || !fs::is_regular_file(file_path)) {
 		return std::optional<ec>{ec::not_regular};
 	}
 
@@ -39,55 +34,48 @@ auto search_file_for(const std::filesystem::path file_path, const std::string &s
 
 	std::string line;
 	for (int64_t line_number = 0; std::getline(f, line); line_number++) {
-		if (line.find(search_key) == std::string::npos) {
+		if (line.find(this->search_key) == std::string::npos) {
 			continue;
 		}
 
-		writer.write(file_path.string(), ":", line_number, ":\t", line, "\n");
+		this->writer.write(file_path.string(), ":", line_number, ":\t", line, "\n");
 	}
 
 	return std::nullopt;
 }
 
-template <typename Writer>
-void directory_searcher(const std::filesystem::path dir_path, const std::string &search_phrase,
-			std::vector<std::future<std::optional<ec>>> *results, const Writer &writer) {
+template <typename Reader, typename Writer>
+void Search<Reader, Writer>::directory_searcher(const fs::path dir_path, result_vector *results) {
 
-	for (auto contents : std::filesystem::directory_iterator(dir_path)) {
+	for (auto contents : fs::directory_iterator(dir_path)) {
 		if (std::filesystem::is_directory(contents.path())) {
-			directory_searcher(contents.path(), search_phrase, results, writer);
+			this->directory_searcher(contents.path(), results);
 			continue;
 		}
 
-		results->push_back(std::async(std::launch::async, [&]() {
-			return search_file_for(contents.path(), search_phrase, true, writer);
-		}));
+		results->push_back(
+		    std::async(std::launch::async, [&]() { return this->search_file_for(contents.path()); }));
 	}
 }
 
-int main(int argc, char **argv) {
+// int main(int argc, char **argv) {
+template <typename Reader, typename Writer> 
+void Search<Reader, Writer>::search(const fs::path &dir_path) {
 
-	if (argc != 3) {
-		return 1;
-	}
-
-	const std::string &file_path = argv[1];
-	const std::string &search_key = argv[2];
-
-	if (!std::filesystem::exists(file_path)) {
-		return 1;
-	}
-
-	auto writer = WriteToStdout{};
-
-	if (!std::filesystem::is_directory(file_path)) {
-		search_file_for(file_path, search_key, true, writer);
+	if (!std::filesystem::is_directory(dir_path)) {
+		this->search_file_for(dir_path);
 	} else {
-		auto error_results = std::vector<std::future<std::optional<ec>>>{};
-		directory_searcher(file_path, search_key, &error_results, writer);
+		auto error_results = result_vector{};
+		this->directory_searcher(dir_path, &error_results);
 
 		for (auto &err_future : error_results) {
 			err_future.get(); // not handling any errors
 		}
 	}
+}
+
+template <typename Reader, typename Writer>
+Search<Reader, Writer>::Search(Reader reader, Writer writer, const std::string &&search_key) : search_key(search_key) {
+	this->reader = reader;
+	this->writer = writer;
 }
