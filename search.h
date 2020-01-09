@@ -7,11 +7,10 @@
 #include <future>
 #include <iostream>
 #include <optional>
-#include <string_view>
 #include <vector>
+#include <sstream>
 
-enum class [[nodiscard]] ec{not_regular, stream_fail};
-using result_vector = std::vector<std::future<std::optional<ec>>>;
+using result_vector = std::vector<std::future<std::optional<std::string>>>;
 namespace fs = std::filesystem;
 
 template <typename Reader, typename Writer> class Search {
@@ -22,7 +21,7 @@ template <typename Reader, typename Writer> class Search {
 	bool no_binary = true;
 
 	auto is_binary(const std::string &file_path) -> bool;
-	auto search_file_for(const fs::path file_path) -> std::optional<ec>;
+	auto search_file_for(const fs::path file_path) -> std::optional<std::string>;
 	void directory_searcher(const fs::path dir_path, result_vector *results);
 
       public:
@@ -43,29 +42,30 @@ auto Search<Reader, Writer>::is_binary(const std::string &file_path) -> bool {
 	return false;
 }
 
-// returns std::nullopt on success
+// returns std::nullopt on failure
 template <typename Reader, typename Writer>
-auto Search<Reader, Writer>::search_file_for(const fs::path file_path) -> std::optional<ec> {
+auto Search<Reader, Writer>::search_file_for(const fs::path file_path) -> std::optional<std::string> {
 
 	if ((this->no_binary && this->is_binary(file_path)) || !fs::is_regular_file(file_path)) {
-		return std::optional<ec>{ec::not_regular};
+		return std::nullopt;
 	}
 
 	auto f = Reader::stream(file_path.string());
 	if (f.fail()) {
-		return std::optional<ec>{ec::stream_fail};
+		return std::nullopt;
 	}
 
 	std::string line;
+	std::stringstream matches;
 	for (int64_t line_number = 0; std::getline(f, line); line_number++) {
 		if (line.find(this->search_key) == std::string::npos) {
 			continue;
 		}
 
-		this->writer.write(file_path.string(), ":", line_number, ":\t", line, "\n");
+		matches << file_path.string() << ":" << line_number << ":\t" << line << std::endl;
 	}
 
-	return std::nullopt;
+	return std::optional<std::string>{matches.str()};
 }
 
 template <typename Reader, typename Writer>
@@ -86,17 +86,22 @@ void Search<Reader, Writer>::directory_searcher(const fs::path dir_path, result_
 	}
 }
 
-// int main(int argc, char **argv) {
+
 template <typename Reader, typename Writer> void Search<Reader, Writer>::search(const fs::path &dir_path) {
 
 	if (!std::filesystem::is_directory(dir_path)) {
 		this->search_file_for(dir_path);
 	} else {
-		auto error_results = result_vector{};
-		this->directory_searcher(dir_path, &error_results);
+		auto results = result_vector{};
+		this->directory_searcher(dir_path, &results);
 
-		for (auto &err_future : error_results) {
-			err_future.get(); // not handling any errors
+		for (auto &future_content : results) {
+			auto opt = future_content.get();
+			if (opt == std::nullopt) {
+				continue;
+			}
+
+			this->writer.write(*opt);
 		}
 	}
 }
