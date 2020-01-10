@@ -1,10 +1,9 @@
+#include "ReadFromFile.h"
+#include "WriteToStdout.h"
+#include "search.h"
+
 #include <string>
 #include <utility>
-
-#include "search.h"
-#include "WriteToStdout.h"
-#include "ReadFromFile.h"
-
 
 int main(int argc, char **argv) {
 	if (argc != 3) {

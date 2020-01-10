@@ -16,7 +16,8 @@ namespace fs = std::filesystem;
 template <typename Reader, typename Writer>
 class SearchBuilder;
 
-template <typename Reader, typename Writer> class Search {
+template <typename Reader, typename Writer>
+class Search {
 
       public:
 	friend class SearchBuilder<Reader, Writer>;
@@ -86,7 +87,8 @@ void Search<Reader, Writer>::directory_searcher(const fs::path dir_path, result_
 	}
 }
 
-template <typename Reader, typename Writer> void Search<Reader, Writer>::search(const fs::path &dir_path) {
+template <typename Reader, typename Writer>
+void Search<Reader, Writer>::search(const fs::path &dir_path) {
 
 	if (!std::filesystem::is_directory(dir_path)) {
 		auto hits = this->search_file(dir_path);
@@ -111,18 +113,15 @@ template <typename Reader, typename Writer> void Search<Reader, Writer>::search(
 template <typename Reader, typename Writer>
 Search<Reader, Writer>::Search(const std::string &&search_key) : search_key(search_key) {}
 
-
-
-
 template <typename Reader, typename Writer>
 class SearchBuilder {
-	private:
+      private:
 	bool no_binary = true;
 	Search<Reader, Writer> searcher;
 
-	public:
+      public:
 	SearchBuilder(const std::string &&search_key) : searcher(std::move(search_key)) {}
-	SearchBuilder& search_binary_files() {
+	SearchBuilder &search_binary_files() {
 		this->searcher.no_binary = false;
 		return *this;
 	}

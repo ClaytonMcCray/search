@@ -2,3 +2,5 @@ IndentWidth: 8
 TabWidth: 8
 UseTab: Always
 ColumnLimit: 120
+AlwaysBreakTemplateDeclarations: Yes
+IncludeBlocks: Regroup
