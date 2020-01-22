@@ -11,7 +11,7 @@ class conf:
 	dir_csv = "comparison_dir.csv"
 
 
-def generate_search_dir(depth=10, width=3):
+def generate_search_dir(depth=10, width=3, num_files_in_dir=1):
 	if path.exists(conf.test_dir):
 		rmtree(conf.test_dir)
 	
@@ -32,8 +32,9 @@ def generate_search_dir(depth=10, width=3):
 
 	f = generate_searchable_file(write_out=False)
 	for dirpath, _, __ in walk(conf.test_dir):
-		with open(dirpath + sep + conf.searchable_file_name, "w", encoding="utf-8") as _f:
-			_f.writelines(f)
+		for s in range(num_files_in_dir):
+			with open(dirpath + sep + conf.searchable_file_name + str(s), "w", encoding="utf-8") as _f:
+				_f.writelines(f)
 
 
 def generate_searchable_file(line_count=1000, write_out=True):
@@ -136,6 +137,7 @@ def avg_time(num_tries, max_query_len, search_, grep_, ripgrep_, csv=None):
 # print("done generating file")
 # print(avg_file_time(10))
 
-generate_search_dir()
-print("done generating files/tree")
-print(avg_time(97, 10000, search_dir_with_search, search_dir_with_grep, search_dir_with_ripgrep, csv=conf.dir_csv))
+if __name__ == "__main__":
+	generate_search_dir()
+	print("done generating files/tree")
+	print(avg_time(97, 10000, search_dir_with_search, search_dir_with_grep, search_dir_with_ripgrep, csv=conf.dir_csv))

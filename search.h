@@ -8,19 +8,20 @@
 #include <iostream>
 #include <optional>
 #include <sstream>
+#include <system_error>
 #include <vector>
 
 using result_vector = std::vector<std::future<std::optional<std::string>>>;
 namespace fs = std::filesystem;
 
-template <typename Reader, typename Writer>
+template <typename Reader, typename Writer, typename SearchIterable>
 class SearchBuilder;
 
-template <typename Reader, typename Writer>
+template <typename Reader, typename Writer, typename SearchIterable>
 class Search {
 
       public:
-	friend class SearchBuilder<Reader, Writer>;
+	friend class SearchBuilder<Reader, Writer, SearchIterable>;
 	void search(const fs::path &dir_path);
 
       private:
@@ -34,8 +35,8 @@ class Search {
 	void directory_searcher(const fs::path dir_path, result_vector *results);
 };
 
-template <typename Reader, typename Writer>
-auto Search<Reader, Writer>::is_binary(const fs::path &file_path) -> bool {
+template <typename Reader, typename Writer, typename SearchIterable>
+auto Search<Reader, Writer, SearchIterable>::is_binary(const fs::path &file_path) -> bool {
 	auto f = Reader::stream(file_path, std::ios::binary);
 	constexpr auto null_byte = 0x00;
 	for (auto b = f.get(); b != EOF; b = f.get()) {
@@ -48,8 +49,8 @@ auto Search<Reader, Writer>::is_binary(const fs::path &file_path) -> bool {
 }
 
 // returns std::nullopt on failure
-template <typename Reader, typename Writer>
-auto Search<Reader, Writer>::search_file(const fs::path file_path) -> std::optional<std::string> {
+template <typename Reader, typename Writer, typename SearchIterable>
+auto Search<Reader, Writer, SearchIterable>::search_file(const fs::path file_path) -> std::optional<std::string> {
 
 	if ((this->no_binary && this->is_binary(file_path)) || !fs::is_regular_file(file_path)) {
 		return std::nullopt;
@@ -70,25 +71,32 @@ auto Search<Reader, Writer>::search_file(const fs::path file_path) -> std::optio
 		matches << file_path.string() << ":" << line_number << ":\t" << line << std::endl;
 	}
 
-	return std::optional<std::string>{matches.str()};
+	return matches.str();
 }
 
-template <typename Reader, typename Writer>
-void Search<Reader, Writer>::directory_searcher(const fs::path dir_path, result_vector *results) {
+template <typename Reader, typename Writer, typename SearchIterable>
+void Search<Reader, Writer, SearchIterable>::directory_searcher(const fs::path dir_path, result_vector *results) {
 
-	for (auto contents : fs::directory_iterator(dir_path)) {
+	for (auto contents : SearchIterable{}.iterable(dir_path)) {
 		if (std::filesystem::is_directory(contents.path())) {
 			this->directory_searcher(contents.path(), results);
 			continue;
 		}
 
-		results->push_back(
-		    std::async(std::launch::async, [=]() { return this->search_file(contents.path()); }));
+		typename result_vector::value_type r;
+
+		try {
+			r = std::async(std::launch::async, [=]() { return this->search_file(contents.path()); });
+		} catch (const std::system_error &e) {
+			r = std::async([=]() { return this->search_file(contents.path()); });
+		}
+
+		results->push_back(std::move(r));
 	}
 }
 
-template <typename Reader, typename Writer>
-void Search<Reader, Writer>::search(const fs::path &dir_path) {
+template <typename Reader, typename Writer, typename SearchIterable>
+void Search<Reader, Writer, SearchIterable>::search(const fs::path &dir_path) {
 
 	if (!std::filesystem::is_directory(dir_path)) {
 		auto hits = this->search_file(dir_path);
@@ -110,14 +118,14 @@ void Search<Reader, Writer>::search(const fs::path &dir_path) {
 	}
 }
 
-template <typename Reader, typename Writer>
-Search<Reader, Writer>::Search(const std::string &&search_key) : search_key(search_key) {}
+template <typename Reader, typename Writer, typename SearchIterable>
+Search<Reader, Writer, SearchIterable>::Search(const std::string &&search_key) : search_key(search_key) {}
 
-template <typename Reader, typename Writer>
+template <typename Reader, typename Writer, typename SearchIterable>
 class SearchBuilder {
       private:
 	bool no_binary = true;
-	Search<Reader, Writer> searcher;
+	Search<Reader, Writer, SearchIterable> searcher;
 
       public:
 	SearchBuilder(const std::string &&search_key) : searcher(std::move(search_key)) {}
@@ -126,7 +134,7 @@ class SearchBuilder {
 		return *this;
 	}
 
-	Search<Reader, Writer> build() { return this->searcher; }
+	Search<Reader, Writer, SearchIterable> build() { return this->searcher; }
 };
 
 #endif

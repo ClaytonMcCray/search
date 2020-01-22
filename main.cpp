@@ -1,3 +1,4 @@
+#include "FilesystemIterable.h"
 #include "ReadFromFile.h"
 #include "WriteToStdout.h"
 #include "search.h"
@@ -10,13 +11,13 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	const std::string &file_path = argv[1];
-	const std::string &search_key = argv[2];
+	const std::string file_path = argv[1];
+	const std::string search_key = argv[2];
 
 	if (!std::filesystem::exists(file_path)) {
 		return 1;
 	}
 
-	auto controller = SearchBuilder<ReadFromFile, WriteToStdout>{std::move(search_key)}.build();
+	auto controller = SearchBuilder<ReadFromFile, WriteToStdout, FilesystemIterable>{std::move(search_key)}.build();
 	controller.search(file_path);
 }
