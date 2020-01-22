@@ -77,7 +77,7 @@ auto Search<Reader, Writer, SearchIterable>::search_file(const fs::path file_pat
 template <typename Reader, typename Writer, typename SearchIterable>
 void Search<Reader, Writer, SearchIterable>::directory_searcher(const fs::path dir_path, result_vector *results) {
 
-	for (auto contents : SearchIterable{}.iterable(dir_path)) {
+	for (auto contents : SearchIterable::iterable(dir_path)) {
 		if (std::filesystem::is_directory(contents.path())) {
 			this->directory_searcher(contents.path(), results);
 			continue;

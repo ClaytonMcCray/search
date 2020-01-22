@@ -6,7 +6,7 @@
 
 class FilesystemIterable {
       public:
-	auto iterable(const std::string &directory) const { return std::filesystem::directory_iterator(directory); }
+	static auto iterable(const std::string &directory) { return std::filesystem::directory_iterator(directory); }
 };
 
 #endif
